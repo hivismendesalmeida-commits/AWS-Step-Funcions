@@ -1,0 +1,49 @@
+{
+  "Comment": "Fluxo do Assistente de Delivery com Amazon Bedrock e Step Functions",
+  "StartAt": "ProcessarPedidoComBedrock",
+  "States": {
+    "ProcessarPedidoComBedrock": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::bedrock:invokeModel",
+      "Parameters": {
+        "ModelId": "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-v2",
+        "Body": {
+          "prompt": "\n\nHuman: Você é um assistente de delivery. Extraia os itens e o endereço do cliente da seguinte mensagem: 'Quero uma pizza calabresa para entregar na Rua A, 123'.\n\nAssistant:",
+          "max_tokens_to_sample": 300
+        }
+      },
+      "Next": "ValidarEstoqueEPedido"
+    },
+    "ValidarEstoqueEPedido": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.statusCode",
+          "NumericEquals": 200,
+          "Next": "ProcessarPagamento"
+        }
+      ],
+      "Default": "PedidoCancelado"
+    },
+    "ProcessarPagamento": {
+      "Type": "Pass",
+      "Result": {
+        "statusPagamento": "APROVADO",
+        "transacaoId": "TX-998877"
+      },
+      "Next": "NotificarCliente"
+    },
+    "NotificarCliente": {
+      "Type": "Pass",
+      "Result": {
+        "mensagem": "Seu pedido foi confirmado e está a caminho!"
+      },
+      "End": true
+    },
+    "PedidoCancelado": {
+      "Type": "Fail",
+      "Cause": "Pedido não pôde ser validado.",
+      "Error": "ValidationError"
+    }
+  }
+}
